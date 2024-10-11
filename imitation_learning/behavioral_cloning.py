@@ -1,45 +1,37 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
-
-class BehavioralCloning:
-    def __init__(self, state_dim, action_dim, hidden_dim=64):
-        self.policy = nn.Sequential(
-            nn.Linear(state_dim, hidden_dim),
+class BehavioralCloningModel:
+    def __init__(self, input_size, num_classes, hidden_dim):
+        # Define your neural network architecture
+        self.model = nn.Sequential(
+            nn.Linear(input_size, hidden_dim),  # First layer
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, action_dim)
+            nn.Linear(hidden_dim, num_classes)  # Output layer
         )
-        self.optimizer = optim.Adam(self.policy.parameters())
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = nn.CrossEntropyLoss()  # Use CrossEntropyLoss for multi-class classification
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
-    def train(self, expert_states, expert_actions, epochs=100, batch_size=32):
-        expert_states = np.array(expert_states)  # Convert to NumPy array
-        expert_actions = np.array(expert_actions)  # Convert to NumPy array
-
-        # Convert to PyTorch tensors
-        expert_states_tensor = torch.tensor(expert_states, dtype=torch.float32)
-        expert_actions_tensor = torch.tensor(expert_actions, dtype=torch.long)  # Assuming actions are indices
-
-        dataset = torch.utils.data.TensorDataset(expert_states, expert_actions)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    def train(self, expert_states, expert_actions, epochs):
+        # Create a DataLoader for batching
+        dataset = TensorDataset(torch.tensor(expert_states, dtype=torch.float32),
+                                torch.tensor(expert_actions, dtype=torch.long))  # Convert actions to long
+        dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
         for epoch in range(epochs):
-            total_loss = 0
-            for states, actions in dataloader:
-                self.optimizer.zero_grad()
-                pred_actions = self.policy(states)
-                loss = self.loss_fn(pred_actions, actions)
+            for batch_states, batch_actions in dataloader:
+                self.optimizer.zero_grad()  # Zero gradients
+
+                # Forward pass
+                pred_actions = self.model(batch_states)  # Shape: (batch_size, num_classes)
+
+                # Compute loss
+                loss = self.loss_fn(pred_actions, batch_actions)  # batch_actions should be class indices
+
+                # Backward pass and optimization step
                 loss.backward()
                 self.optimizer.step()
-                total_loss += loss.item()
 
-            if (epoch + 1) % 10 == 0:
-                print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader):.4f}")
-
-    def predict(self, state):
-        with torch.no_grad():
-            return self.policy(state)
+                print(f'Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}')

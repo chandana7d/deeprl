@@ -1,6 +1,6 @@
 import torch
 import gym
-from behavioral_cloning import BehavioralCloning
+from behavioral_cloning import BehavioralCloningModel
 from dagger import DAgger
 from inverse_rl import InverseRL
 import config
@@ -45,13 +45,19 @@ def main():
     # Collect expert data
     expert_states, expert_actions = collect_expert_data(env, config.expert_policy)
 
-    # Behavioral Cloning
-    print("Training Behavioral Cloning...")
-    bc_model = BehavioralCloning(config.STATE_DIM, config.ACTION_DIM, config.HIDDEN_DIM)
-    bc_model.train(expert_states, expert_actions, epochs=config.BC_EPOCHS)
-    bc_reward = evaluate_policy(env, bc_model.predict)
-    print(f"Behavioral Cloning Average Reward: {bc_reward:.2f}")
+    # Instantiate the model with the correct parameters
+    input_size = config.STATE_DIM  # State dimension from your config
+    num_classes = config.ACTION_DIM  # Number of action classes
+    hidden_dim = config.HIDDEN_DIM  # Hidden layer size from your config
 
+    # Check the number of arguments passed
+    print(f'Input Size: {input_size}, Num Classes: {num_classes}, Hidden Dim: {hidden_dim}')
+
+    # Ensure you are only passing three arguments
+    bc_model = BehavioralCloningModel(input_size, num_classes, hidden_dim)
+
+    # Train the model
+    bc_model.train(expert_states, expert_actions, epochs=config.BC_EPOCHS)
     # DAgger
     print("\nTraining DAgger...")
     dagger_model = DAgger(config.STATE_DIM, config.ACTION_DIM, config.HIDDEN_DIM)
